@@ -1,0 +1,78 @@
+"Phrases"
+{
+    "Err_DatabaseConnect"
+    {
+        "en" "Could not connect to database."
+    }
+
+    "DB_DatabaseConnect"
+    {
+        "en" "Connected to database."
+    }
+
+    "DB_ValidateDatabase"
+    {
+        "en" "Validating integrity of database."
+    }
+
+    "DB_CreateDatabase"
+    {
+        "en" "Database not intialized, creating database."
+    }
+
+    "DB_RepairDatabase"
+    {
+        "en" "Issues found, repairing database." 
+    }
+
+    "DB_SuccessRepairDatabase"
+    {
+        "#format" "{1:d}"
+        "en" "Repaired '{1}' tables."
+    }
+
+    "DB_SaveClient"
+    {
+        "#format" "{1:s}"
+        "en" "Saving data of client '{1}'"
+    }
+
+    "DB_FailSaveClient_Invalid"
+    {
+        "#format" "{1:s}"
+        "en" "Could not save data of client '{1}', player not in-game."
+    }
+
+    "DB_LoadClient"
+    {
+        "#format" "{1:s}"
+        "en" "Loading data of client '{1}'"
+    }
+    
+    "DB_FailLoadClient_Invalid"
+    {
+        "#format" "{1:s}"
+        "en" "Could not load data of client '{1}', player not in-game."
+    }
+
+    "DB_SaveAllClients"
+    {
+        "en" "Saving data of all clients:"
+    }
+
+    "DB_AutoSaveBegin"
+    {
+        "en" "Starting autosave."
+    }
+
+    "DB_AutoSaveComplete"
+    {
+        "en" "Completed autosave."
+    }
+
+    "Command_Credits"
+    {
+        "#format" "{1:s},{2:d}"
+        "en" "{1} has {2} credits."
+    }
+}
