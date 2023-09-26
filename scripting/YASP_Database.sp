@@ -9,10 +9,11 @@ public Database hDatabase = null;
 
 public void DB_Connect()
 {
-    ConVar cfg = FindConVar("yasp_database_cfg");
+    ConVar cfg = FindConVar("yasp_database_configuration");
 
     if (cfg == null) {
-        PrintToServer("[YASP] %T", "Err_DatabaseConnect")   
+        PrintToServer("[YASP] %T", "Err_DatabaseConnect", LANG_SERVER);
+        return; 
     }
 
     char buffer[32];
@@ -25,13 +26,13 @@ public void DB_GetDatabase(Database db, const char[] error, any data)
 {
     if (db == null)
     {
-        PrintToServer("[YASP] %T", "Err_DatabaseConnect")   
+        PrintToServer("[YASP] %T", "Err_DatabaseConnect", LANG_SERVER)   
         LogError("[YASP] Database failure: %s", error);
     } 
     else 
     {
         hDatabase = db;
-        PrintToServer("[YASP] %T", "DB_DatabaseConnect")
+        PrintToServer("[YASP] %T", "DB_DatabaseConnect", LANG_SERVER)
 
         DB_ValidateDatabase();
     }
@@ -40,7 +41,7 @@ public void DB_GetDatabase(Database db, const char[] error, any data)
 public void DB_SaveClient(int client)
 {
     if (IsDatabaseNull()) return;
-    if (!IsClientValid(client)) 
+    if (!IsClientValid(client))
     {
         PrintToServer("[YASP] Error: %T", "DB_FailSaveClient_Invalid", LANG_SERVER, client);
         return;
@@ -51,6 +52,17 @@ public void DB_SaveClient(int client)
     {
         DB_CreateClientEntry(client);
     }
+
+    char auth_id[YASP_STEAMAUTH_2];
+    GetClientAuthId(client, AuthId_Steam2, auth_id, sizeof(auth_id));
+
+    int credits = YASP_GetClientCredits(client);
+
+    char query[200];
+    Format(query, sizeof(query), "");
+
+    // todo 
+    // save credits & inv (later)
 }
 
 public void DB_LoadClient(int client)
@@ -63,8 +75,11 @@ public void DB_LoadClient(int client)
     }
     if (IsFakeClient(client)) return;
     if (!DB_ClientHasEntry(client)) return;
+    
+    char name[MAX_NAME_LENGTH];
+    GetClientName(client, name, sizeof(name));
 
-    PrintToServer("[YASP] %T", "DB_LoadClient", LANG_SERVER, client);
+    PrintToServer("[YASP] %T", "DB_LoadClient", LANG_SERVER, name, client);
 
     // finish
     ga_bPlayerInvLoaded[client] = true;
@@ -78,7 +93,13 @@ public void DB_ValidateDatabase()
 
     bool created = false;
 
-    char query[200] = "SELECT count(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'yamp';";
+    char db_cfg[64];
+    ConVar cfg = FindConVar("yasp_database_configuration");
+    if (cfg == null) return;
+    cfg.GetString(db_cfg, sizeof(db_cfg));
+
+    char query[200];
+    Format(query, sizeof(query), "SELECT count(*) AS count FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = '%s';", db_cfg);
     
     int count;
 
@@ -124,9 +145,7 @@ public void DB_CreateDatabase()
 
 public void DB_RepairDatabase()
 {
-    if (IsDatabaseNull()) return; 
-
-    PrintToServer("[YASP] %T", "DB_RepairDatabase", LANG_SERVER);
+    if (IsDatabaseNull()) return;
 
     bool users, items, inventory;
 
@@ -136,51 +155,66 @@ public void DB_RepairDatabase()
     items = SQL_FastQuery(hDatabase, "SELECT * FROM items;");
     inventory = SQL_FastQuery(hDatabase, "SELECT * FROM inventory;");
 
-    int repairs = users + items + inventory; // get num of tables repaired
+    int repairs;
 
     SQL_UnlockDatabase(hDatabase);
 
     // drop and recreate tables (RIP ENTRIES LUL)
-    if (users)
+    if (!users)
     {
         SQL_LockDatabase(hDatabase);
 
         SQL_Query(hDatabase, "DROP TABLE users;");
         inventory = true;
+
+        repairs++;
     
         SQL_UnlockDatabase(hDatabase);
     }
 
-    if (items)
+    if (!items)
     {
         SQL_LockDatabase(hDatabase);
 
         SQL_Query(hDatabase, "DROP TABLE items;");
+        
+        repairs++;
     
         SQL_UnlockDatabase(hDatabase);
     }
 
-    if (inventory)
+    if (!inventory)
     {
         SQL_LockDatabase(hDatabase);
 
         SQL_Query(hDatabase, "DROP TABLE inventory;");
+
+        repairs++;
     
         SQL_UnlockDatabase(hDatabase);
     }
     
+    if (repairs == 0) {
+        PrintToServer("       L %T", "DB_ValidationNoIssues", LANG_SERVER);
+
+        return;
+    }
+
     DB_CreateDatabase();
 
-    PrintToServer(" L %T", "DB_SuccessRepairDatabase", LANG_SERVER, repairs);
+    PrintToServer("[YASP] %T", "DB_RepairDatabase", LANG_SERVER);
+    PrintToServer("       L %T", "DB_SuccessRepairDatabase", LANG_SERVER, repairs);
 }
 
 public void DB_SaveAllClients()
 {
     PrintToServer("[YASP] %T", "DB_SaveAllClients", LANG_SERVER);
+    char name[MAX_NAME_LENGTH];
 
     for (int i = 0; i < MaxClients; i++)
     {
-        PrintToServer(" L %T", "DB_SaveClient", LANG_SERVER, i);
+        GetClientName(i, name, sizeof(name));
+        PrintToServer("       L %T", "DB_SaveClient", LANG_SERVER, name, i);
         DB_SaveClient(i);
     }
 }
@@ -194,7 +228,14 @@ public void DB_CreateClientEntry(int client)
     char auth_id[YASP_STEAMAUTH_2];
     GetClientAuthId(client, AuthId_Steam2, auth_id, sizeof(auth_id));
 
+    char name[MAX_NAME_LENGTH];
+    GetClientName(client, name, sizeof(name));
+
     int credits = YASP_GetClientCredits(client);
+
+    if (credits == -1) credits = 0;
+
+    PrintToServer("[YASP] %T", "DB_CreateClientEntry", LANG_SERVER, name, client);
 
     char query[200];
     Format(query, sizeof(query), "INSERT INTO users (auth_id, credits) VALUES ('%s', %d);", auth_id, credits);
@@ -216,11 +257,15 @@ public bool DB_ClientHasEntry(int client)
     char query[200];
     Format(query, sizeof(query), "SELECT * FROM users WHERE auth_id = '%s';", auth_id)
 
+    int count = 0;
+
     SQL_LockDatabase(hDatabase);
-    SQL_FastQuery(hDatabase, query);
+    DBResultSet hQuery = SQL_Query(hDatabase, query);
+    count = SQL_GetRowCount(hQuery);
     SQL_UnlockDatabase(hDatabase);
 
-    return true;
+    delete hQuery;
+    return count > 0;
 }
 
 // ==================== [ UTILITY ] ==================== //

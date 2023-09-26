@@ -37,7 +37,10 @@ public int Native_YASP_SaveClientData(Handle plugin, int numParams)
 {
     int client = GetNativeCell(1);
 
-    PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, client);
+    char name[MAX_NAME_LENGTH];
+    GetClientName(client, name, sizeof(name));
+
+    PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, client);
     DB_SaveClient(client);
 
     return 1;
