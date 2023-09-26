@@ -29,6 +29,13 @@ native int YASP_GetClientCredits(int client);
  */
 native void YASP_SetClientCredits(int client, int amount);
 
+/*
+ * Adds number of credits of client.
+ * 
+ * @param client    Client Index
+ * @param amount    Credit amount
+ */
+native void YASP_AddClientCredits(int client, int amount);
 
 /*
  * Save data of client.
