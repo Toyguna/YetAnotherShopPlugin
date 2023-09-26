@@ -15,6 +15,11 @@
         "en" "Validating integrity of database."
     }
 
+    "DB_ValidationNoIssues"
+    {
+        "en" "No problems found." 
+    }
+
     "DB_CreateDatabase"
     {
         "en" "Database not intialized, creating database."
@@ -31,16 +36,34 @@
         "en" "Repaired '{1}' tables."
     }
 
+    "DB_CreateClientEntry"
+    {
+        "#format" "{1:s},{2:d}"
+        "en" "First log-in of client '{1}' (#{2})! Creating database entry."
+    }
+
     "DB_SaveClient"
     {
-        "#format" "{1:s}"
-        "en" "Saving data of client '{1}'"
+        "#format" "{1:s},{2:d}"
+        "en" "Saving data of client '{1}' (#{2})"
+    }
+
+    "DB_FailSaveClient_Invalid"
+    {
+        "#format" "{1:d}"
+        "en" "Could not save data of client #{1}, player not in-game."
     }
 
     "DB_LoadClient"
     {
-        "#format" "{1:s}"
-        "en" "Loading data of client '{1}'"
+        "#format" "{1:s},{2:d}"
+        "en" "Loading data of client '{1}' (#{2})"
+    }
+    
+    "DB_FailLoadClient_Invalid"
+    {
+        "#format" "{1:d}"
+        "en" "Could not load data of client #{1}, player not in-game."
     }
 
     "DB_SaveAllClients"
