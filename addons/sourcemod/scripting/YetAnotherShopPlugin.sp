@@ -49,17 +49,27 @@ public void OnPluginStart()
 	LoadTranslations("yasp.phrases");
 	LoadTranslations("common.phrases");
 
-	RegisterNatives();
-
 	CreateConVars();
 	AutoExecConfig(true);
 
+	DB_Connect();
+
+	HookEvents();
 	InitCommands();
+
+	HookCreditsOnPlay();
 }
 
 public void OnPluginEnd()
 {
 
+}
+
+public APLRes AskPluginLoad2()
+{
+	RegisterNatives();
+
+	return APLRes_Success;
 }
 
 public void OnClientPutInServer(int client)
@@ -83,6 +93,7 @@ void RegisterNatives()
 {
 	CreateNative("YASP_GetClientCredits", Native_YASP_GetClientCredits);
 	CreateNative("YASP_SetClientCredits", Native_YASP_SetClientCredits);
+	CreateNative("YASP_AddClientCredits", Native_YASP_AddClientCredits);
 	
 	CreateNative("YASP_SaveClientData", Native_YASP_SaveClientData);
 	CreateNative("YASP_LoadClientData", Native_YASP_LoadClientData);
@@ -105,7 +116,7 @@ void CreateConVars()
 
 	// Points
 	g_cvPointsOnPlay = CreateConVar("yasp_points_onplay", "2", "Points gained while playing.");
-	g_cvPointsOnPlayInterval = CreateConVar("yasp_points_onplayer_interval", "2", "Interval between 'yasp_points_onplay'. (In seconds)", _, true, 15.0);
+	g_cvPointsOnPlayInterval = CreateConVar("yasp_points_onplayer_interval", "30.0", "Interval between 'yasp_points_onplay', 0 or less to disable. (In seconds)", _, true, 15.0);
 	
 	g_cvPointsOnKill = CreateConVar("yasp_points_onkill", "2", "Points gained on kill.");
 }
@@ -143,13 +154,44 @@ void UnloadPlayer(int client)
 	ga_bPlayerInvLoaded[client] = false;
 	ga_iPlayerCredits[client] = 0;
 
-	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, client);
+	char name[MAX_NAME_LENGTH];
+	GetClientName(client, name, sizeof(name));
+
+	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, client);
 	DB_SaveClient(client);
+}
+
+void HookEvents()
+{
+	// EventHookMode_Post
+	HookEvent("player_death", EventPost_PlayerDeath, EventHookMode_Post);
+}
+
+void HookCreditsOnPlay()
+{
+	int enable = g_cvPointsOnPlay.IntValue;
+	if (enable < 1) return;
+
+	float interval = g_cvPointsOnPlayInterval.FloatValue;
+	CreateTimer(interval, Credits_OnPlay);
 }
 
 // ==================== [ FUNCTIONS ] ==================== //
 
 // ==================== [ EVENTS ] ==================== //
+
+public void EventPost_PlayerDeath(Event event, const char[] name, bool dontBroadcast)
+{
+	int victim_id = event.GetInt("userid");
+	int killer_id = event.GetInt("attacker");
+
+	int victim = GetClientOfUserId(victim_id);
+	int killer = GetClientOfUserId(killer_id);
+
+	// Give credits
+	Credits_OnKill(killer);
+}
+
 
 // ==================== [ COMMANDS ] ==================== //
 
@@ -208,7 +250,10 @@ public Action Command_SetCredits(int client, int args)
 
 	YASP_SetClientCredits(reciever, credits);
 
-	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, reciever);
+	char name[MAX_NAME_LENGTH];
+	GetClientName(reciever, name, sizeof(name));
+
+	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, reciever);
 	DB_SaveClient(reciever);
 
 	PrintToChat(client, "[YASP] Set credits of %s to %d.", s_temp, credits);
@@ -223,3 +268,25 @@ public Action Command_Shop(int client, int args)
 
 // ==================== [ MENUS ] ==================== //
 
+
+// ==================== [ CREDITS ] ==================== //
+public Action Credits_OnPlay(Handle timer)
+{
+	int amount = g_cvPointsOnPlay.IntValue;
+
+	for (int i = 0; i < MaxClients; i++)
+	{
+		if (!IsClientValid(i)) continue;
+
+		YASP_AddClientCredits(i, amount);
+	}
+
+	return Plugin_Continue;
+}
+
+public void Credits_OnKill(int killer)
+{
+	int amount = g_cvPointsOnKill.IntValue;
+
+	YASP_AddClientCredits(killer, amount);
+}
