@@ -151,14 +151,14 @@ void LoadPlayer(int client)
 
 void UnloadPlayer(int client)
 {
-	ga_bPlayerInvLoaded[client] = false;
-	ga_iPlayerCredits[client] = 0;
-
 	char name[MAX_NAME_LENGTH];
 	GetClientName(client, name, sizeof(name));
 
 	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, client);
 	DB_SaveClient(client);
+
+	ga_bPlayerInvLoaded[client] = false;
+	ga_iPlayerCredits[client] = 0;
 }
 
 void HookEvents()
@@ -173,7 +173,7 @@ void HookCreditsOnPlay()
 	if (enable < 1) return;
 
 	float interval = g_cvPointsOnPlayInterval.FloatValue;
-	CreateTimer(interval, Credits_OnPlay);
+	CreateTimer(interval, Credits_OnPlay, _, TIMER_REPEAT);
 }
 
 // ==================== [ FUNCTIONS ] ==================== //
@@ -256,7 +256,7 @@ public Action Command_SetCredits(int client, int args)
 	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, reciever);
 	DB_SaveClient(reciever);
 
-	PrintToChat(client, "[YASP] Set credits of %s to %d.", s_temp, credits);
+	PrintToChat(client, "[YASP] Set credits of %s to %d.", name, credits);
 
 	return Plugin_Handled;
 }
@@ -277,6 +277,7 @@ public Action Credits_OnPlay(Handle timer)
 	for (int i = 0; i < MaxClients; i++)
 	{
 		if (!IsClientValid(i)) continue;
+		if (IsFakeClient(i)) continue;
 
 		YASP_AddClientCredits(i, amount);
 	}

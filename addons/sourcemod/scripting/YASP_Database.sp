@@ -56,13 +56,21 @@ public void DB_SaveClient(int client)
     char auth_id[YASP_STEAMAUTH_2];
     GetClientAuthId(client, AuthId_Steam2, auth_id, sizeof(auth_id));
 
-    int credits = YASP_GetClientCredits(client);
+    int user_id = DB_GetClientUserId(client);
+    if (user_id == -1) return;
 
     char query[200];
-    Format(query, sizeof(query), "");
 
     // todo 
-    // save credits & inv (later)
+    // save inv (later)
+
+    // Save Credits
+    int credits = YASP_GetClientCredits(client);
+
+    Format(query, sizeof(query), "UPDATE users SET credits = %d WHERE user_id = %d;", credits, user_id);
+    SQL_LockDatabase(hDatabase);
+    SQL_FastQuery(hDatabase, query);
+    SQL_UnlockDatabase(hDatabase);
 }
 
 public void DB_LoadClient(int client)
@@ -75,11 +83,38 @@ public void DB_LoadClient(int client)
     }
     if (IsFakeClient(client)) return;
     if (!DB_ClientHasEntry(client)) return;
-    
+
+    int user_id = DB_GetClientUserId(client);
+    if (user_id == -1) return;
+
     char name[MAX_NAME_LENGTH];
     GetClientName(client, name, sizeof(name));
 
+
     PrintToServer("[YASP] %T", "DB_LoadClient", LANG_SERVER, name, client);
+
+
+    char query[200];
+
+    // Get Credits
+    int credits;
+
+    Format(query, sizeof(query), "SELECT * FROM users WHERE user_id = %d;", user_id);
+    
+    SQL_LockDatabase(hDatabase);
+    DBResultSet hQuery1 = SQL_Query(hDatabase, query);
+    
+    while (SQL_FetchRow(hQuery1))
+    {
+        credits = SQL_FetchInt(hQuery1, 2);
+    }
+
+    SQL_UnlockDatabase(hDatabase);
+    delete hQuery1;
+
+
+    // Load
+    YASP_SetClientCredits(client, credits);
 
     // finish
     ga_bPlayerInvLoaded[client] = true;
@@ -266,6 +301,34 @@ public bool DB_ClientHasEntry(int client)
 
     delete hQuery;
     return count > 0;
+}
+
+public int DB_GetClientUserId(int client)
+{
+    if (IsDatabaseNull()) return -1;
+    if (!IsClientValid(client)) return -1;
+    if (IsFakeClient(client)) return -1;
+
+    char auth_id[YASP_STEAMAUTH_2];
+    GetClientAuthId(client, AuthId_Steam2, auth_id, sizeof(auth_id));
+
+    int userid = -1;
+
+    char query[200];
+    Format(query, sizeof(query), "SELECT * FROM users WHERE auth_id = '%s';", auth_id);
+
+    SQL_LockDatabase(hDatabase);
+    DBResultSet hQuery = SQL_Query(hDatabase, query);
+
+    while (SQL_FetchRow(hQuery))
+    {
+        userid = SQL_FetchInt(hQuery, 0);
+    }
+
+    SQL_UnlockDatabase(hDatabase);
+    delete hQuery;
+
+    return userid;
 }
 
 // ==================== [ UTILITY ] ==================== //
