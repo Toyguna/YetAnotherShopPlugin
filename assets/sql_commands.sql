@@ -42,3 +42,14 @@ SELECT * FROM users WHERE auth_id = '';
 
 -- create client entry
 INSERT INTO users (auth_id, credits) VALUES ('', );
+
+
+-- Saving Clients
+
+-- save credits
+UPDATE users SET credits =  WHERE user_id = ;
+
+
+-- Utility
+
+SELECT * FROM users WHERE auth_id = 'STEAM_0:1:197188411';
