@@ -162,6 +162,8 @@ public void DB_ValidateDatabase()
         PrintToServer("[YASP] %T", "DB_CreateDatabase", LANG_SERVER);
         DB_CreateDatabase();
     }
+
+    DB_UpdateItems(GetShopItemsMap());
 }
 
 public void DB_CreateDatabase()
@@ -172,7 +174,7 @@ public void DB_CreateDatabase()
     SQL_FastQuery(hDatabase, "CREATE TABLE users(user_id INT NOT NULL PRIMARY KEY AUTO_INCREMENT, auth_id VARCHAR(20) NOT NULL, credits BIGINT NOT NULL);");
 
     // items
-    SQL_FastQuery(hDatabase, "CREATE TABLE items(item_id INT NOT NULL PRIMARY KEY, item_name VARCHAR(128) NOT NULL, item_price INT NOT NULL);");
+    SQL_FastQuery(hDatabase, "CREATE TABLE items(item_id VARCHAR(128) NOT NULL PRIMARY KEY);");
     
     // inventory
     SQL_FastQuery(hDatabase, "CREATE TABLE inventory(user_id INT NOT NULL, item_id INT NOT NULL);");
@@ -186,9 +188,9 @@ public void DB_RepairDatabase()
 
     SQL_LockDatabase(hDatabase);
 
-    users = SQL_FastQuery(hDatabase, "SELECT * FROM users;");
-    items = SQL_FastQuery(hDatabase, "SELECT * FROM items;");
-    inventory = SQL_FastQuery(hDatabase, "SELECT * FROM inventory;");
+    users = SQL_FastQuery(hDatabase, "SELECT user_id, auth_id, credits FROM users;");
+    items = SQL_FastQuery(hDatabase, "SELECT item_id FROM items;");
+    inventory = SQL_FastQuery(hDatabase, "SELECT user_id, item_id FROM inventory;");
 
     int repairs;
 
@@ -230,7 +232,7 @@ public void DB_RepairDatabase()
     }
     
     if (repairs == 0) {
-        PrintToServer("       L %T", "DB_ValidationNoIssues", LANG_SERVER);
+        PrintToServer(" L %T", "DB_ValidationNoIssues", LANG_SERVER);
 
         return;
     }
@@ -238,7 +240,7 @@ public void DB_RepairDatabase()
     DB_CreateDatabase();
 
     PrintToServer("[YASP] %T", "DB_RepairDatabase", LANG_SERVER);
-    PrintToServer("       L %T", "DB_SuccessRepairDatabase", LANG_SERVER, repairs);
+    PrintToServer(" L %T", "DB_SuccessRepairDatabase", LANG_SERVER, repairs);
 }
 
 public void DB_SaveAllClients()
@@ -249,7 +251,7 @@ public void DB_SaveAllClients()
     for (int i = 0; i < MaxClients; i++)
     {
         GetClientName(i, name, sizeof(name));
-        PrintToServer("       L %T", "DB_SaveClient", LANG_SERVER, name, i);
+        PrintToServer(" L %T", "DB_SaveClient", LANG_SERVER, name, i);
         DB_SaveClient(i);
     }
 }
@@ -329,6 +331,51 @@ public int DB_GetClientUserId(int client)
     delete hQuery;
 
     return userid;
+}
+
+void DB_UpdateItems(StringMap shop)
+{
+    // drop table: 'items'
+    SQL_LockDatabase(hDatabase);
+    SQL_FastQuery(hDatabase, "DELETE FROM items;");
+    SQL_UnlockDatabase(hDatabase);
+
+    StringMapSnapshot snapshot = shop.Snapshot();
+
+    // iterate over categories
+    for (int i = 0; i < snapshot.Length; i++)
+    {
+        char key[YASP_MAX_SHOP_CATEGORY_LENGTH];
+        snapshot.GetKey(i, key, sizeof(key));
+
+        ArrayList list;
+        shop.GetValue(key, list);
+
+        // iterate over items in category
+        for (int j = 0; j < list.Length; j++)
+        {
+            YASP_ShopItem item;
+            list.GetArray(j, item, sizeof(item));
+
+            DB_AddItem(item);
+        }
+    }
+
+    delete snapshot;
+}
+
+void DB_AddItem(YASP_ShopItem item)
+{
+    // id
+    char id[YASP_MAX_ITEM_ID_LENGTH];
+    id = item.id;
+
+    char query[200];
+    Format(query, sizeof(query), "INSERT INTO items(item_id) VALUES ('%s');", id);
+
+    SQL_LockDatabase(hDatabase);
+    SQL_FastQuery(hDatabase, query);
+    SQL_UnlockDatabase(hDatabase);
 }
 
 // ==================== [ UTILITY ] ==================== //

@@ -7,9 +7,7 @@ CREATE TABLE users(
 );
 
 CREATE TABLE items(
-	item_id INT NOT NULL PRIMARY KEY,
-    item_name VARCHAR(128) NOT NULL,
-    item_price INT NOT NULL
+	item_id VARCHAR(128) NOT NULL PRIMARY KEY
 );
 
 CREATE TABLE inventory(

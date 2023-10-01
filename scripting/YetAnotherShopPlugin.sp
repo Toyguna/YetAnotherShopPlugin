@@ -8,6 +8,7 @@
 #include <YASP_Util.sp>
 #include <YASP_Manager.sp>
 #include <YASP_Database.sp>
+#include <YASP_Items.sp>
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -40,7 +41,9 @@ public ConVar g_cvPointsOnPlayInterval;
 
 // ==================== [ GLOBAL VARIABLES ] ==================== //
 
+char CFG_SHOP_DIR[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/yasp_shop.cfg";
 
+public StringMap gsm_ShopItems;
 
 // ==================== [ FORWARDS ] ==================== //
 
@@ -49,8 +52,12 @@ public void OnPluginStart()
 	LoadTranslations("yasp.phrases");
 	LoadTranslations("common.phrases");
 
+	InitVariables();
+
 	CreateConVars();
 	AutoExecConfig(true);
+
+	ReadShop();
 
 	DB_Connect();
 
@@ -98,6 +105,9 @@ void RegisterNatives()
 	CreateNative("YASP_SaveClientData", Native_YASP_SaveClientData);
 	CreateNative("YASP_LoadClientData", Native_YASP_LoadClientData);
 	CreateNative("YASP_SaveAllClientData", Native_YASP_SaveAllClientData);
+
+	CreateNative("YASP_GetEnumFromTypeStr", Native_YASP_GetEnumFromTypeStr);
+	CreateNative("YASP_GetTypeStrFromEnum", Native_YASP_GetTypeStrFromEnum);
 }
 
 void CreateConVars()
@@ -123,7 +133,88 @@ void CreateConVars()
 
 void ReadShop()
 {
+	PrintToServer("[YASP] %T", "ReadShop_Begin", LANG_SERVER);
 
+	gsm_ShopItems.Clear();
+
+	KeyValues kv = new KeyValues("ShopItems");
+	kv.ImportFromFile(CFG_SHOP_DIR);
+
+	char key[YASP_MAX_SHOP_CATEGORY_LENGTH];
+
+	kv.GotoFirstSubKey();
+
+	// iterate over categories
+	do
+	{
+		kv.GetSectionName(key, sizeof(key));
+
+		ReadShopCategory(kv, key);
+		kv.GoBack();
+	}
+	while(kv.GotoNextKey());
+
+	delete kv;
+
+	PrintToServer("[YASP] %T", "ReadShop_Finish", LANG_SERVER);
+}
+
+void ReadShopCategory(KeyValues kv, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
+{
+	char key[YASP_MAX_ITEM_ID_LENGTH];
+
+	kv.GotoFirstSubKey(false);
+
+	ArrayList tasks = new ArrayList(sizeof(YASP_ShopItem));
+
+	// iterate over items in category
+	do
+	{
+		kv.GetSectionName(key, sizeof(key));
+
+		YASP_ShopItem item;
+		item = ReadShopItem(kv);
+
+		tasks.PushArray(item, sizeof(item));
+		
+	}
+	while(kv.GotoNextKey(false));
+
+	gsm_ShopItems.SetValue(category, tasks, true);
+}
+
+YASP_ShopItem ReadShopItem(KeyValues kv)
+{
+	YASP_ShopItem item;
+
+	// id
+	char id[YASP_MAX_ITEM_ID_LENGTH];
+	kv.GetSectionName(id, sizeof(id));
+
+	// display
+	char display[YASP_MAX_ITEM_NAME_LENGTH];
+	kv.GetString("display", display, sizeof(display));
+
+	// buyable
+	bool buyable;
+	buyable = view_as<bool>(kv.GetNum("buyable", 0));
+
+	// price
+	int price;
+	price = kv.GetNum("price", 0);
+
+	// type
+	char type[YASP_MAX_ITEM_TYPE_LENGTH];
+	kv.GetString("type", type, sizeof(type));
+
+	item.Init(id, display, buyable, price, YASP_NAMETAG);
+
+	return item;
+}
+
+void InitVariables()
+{
+	gsm_ShopItems = new StringMap();
 }
 
 void InitCommands()
@@ -270,6 +361,7 @@ public Action Command_Shop(int client, int args)
 
 
 // ==================== [ CREDITS ] ==================== //
+
 public Action Credits_OnPlay(Handle timer)
 {
 	int amount = g_cvPointsOnPlay.IntValue;
@@ -290,4 +382,10 @@ public void Credits_OnKill(int killer)
 	int amount = g_cvPointsOnKill.IntValue;
 
 	YASP_AddClientCredits(killer, amount);
+}
+
+// ==================== [ GETTERS ] ==================== //
+public StringMap GetShopItemsMap()
+{
+	return gsm_ShopItems;
 }
