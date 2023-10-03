@@ -12,7 +12,8 @@ CREATE TABLE items(
 
 CREATE TABLE inventory(
 	user_id INT NOT NULL,
-    item_id INT NOT NULL
+	item_id VARCHAR(128) NOT NULL PRIMARY KEY,
+    equipped BOOL NOT NULL
 );
 
 -- Validate Databaase
