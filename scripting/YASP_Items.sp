@@ -25,5 +25,7 @@ enum struct YASP_ShopItem
 
     bool buyable;
     int price;
+    float refundable;
+
     YASP_ITEMTYPE type;
 }
