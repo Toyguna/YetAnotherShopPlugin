@@ -225,7 +225,7 @@ YASP_ShopItem ReadShopItem(KeyValues kv)
 
 	// refundable
 	float refundable;
-	refundable = kv.GetFloat("refundable", 1);
+	refundable = kv.GetFloat("refundable", 1.0);
 
 	// type
 	char str_type[YASP_MAX_ITEM_TYPE_LENGTH];
