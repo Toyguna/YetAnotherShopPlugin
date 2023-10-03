@@ -1,5 +1,7 @@
 # YetAnotherShopPlugin
 
+## HIGHLY WIP - NOT USABLE YET
+
 ## What is YASP?
 YetAnotherShopPlugin is a store/shop plugin for TF2.
 
