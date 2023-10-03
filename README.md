@@ -17,6 +17,7 @@ Inside your `addons/sourcemod/configs` folder you should see a folder named "Yet
   - `nametag.cfg`, `trail.cfg` etc. to edit item's type properties.
 
 ### Structure of `shop.cfg`:
+```
 "ShopItems"
 {
     "nt_example" // Id of item, for means of clean code, you can prefix items corresponding to the item type
@@ -26,12 +27,12 @@ Inside your `addons/sourcemod/configs` folder you should see a folder named "Yet
         "buyable" "1" // Is item buyable? (0: false, 1: true)
         "type" "nametag" // Type of the item
     }
-
-    ...
 }
+```
 
 ### Structure of type config files:
-Example: `nametag.cfg`
+nametag.cfg:
+```
 "Nametags"
 {
     "nt_example" // Id of item with corresponding type
@@ -39,4 +40,4 @@ Example: `nametag.cfg`
         "nametag" "Example" // Nametag
     }
 }
-
+```
