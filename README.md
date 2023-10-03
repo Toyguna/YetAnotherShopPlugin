@@ -1,7 +1,7 @@
 # Yet Another Shop Plugin
 
 ## What is YASP?
-Yet Another Shop Plugin is a store/shop plugin for TF2.
+YetAnotherShopPlugin is a store/shop plugin for TF2.
 
 ## How do I install?
 Paste the `addons` folder into your `<server_directory>/tf` directory.
@@ -14,7 +14,7 @@ Paste the `addons` folder into your `<server_directory>/tf` directory.
 ## How do I add custom items to the inventory?
 Inside your `addons/sourcemod/configs` folder you should see a folder named "YetAnotherShopPlugin"
   - `shop.cfg` to create items.
-  - `nametag.cfg`, `trail.cfg` etc. to edit item's type properties.
+  - `type/nametag.cfg`, `type/trail.cfg` etc. to edit item's type properties.
 
 ### Structure of `shop.cfg`:
 ```
