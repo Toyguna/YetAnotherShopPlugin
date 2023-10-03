@@ -87,6 +87,11 @@
         "en" "{1} has {2} credits."
     }
 
+    "ReadShop_Fail_Dir"
+    {
+        "en" "Shop cfg directory does not exist."
+    }
+
     "ReadShop_Begin"
     {
         "en" "Reading shop items."
@@ -95,5 +100,49 @@
     "ReadShop_Finish"
     {
         "en" "Read shop items."
+    }
+
+    "Credit_OnPlay"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for playing."
+    }
+
+    "Credit_OnKill"
+    {
+        "#format" "{1:d,2:s}" // 1: credits, 2: victim's name
+        "en" "You got {1} credits for killing {2}."
+    }
+
+    
+    "Credit_OnAssist"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for assisting in a player's death."
+    }
+
+    "Credit_OnUber"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for ubering a player."
+    }
+
+
+    "Credit_OnCap"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for capturing a point."
+    }
+
+    "Credit_OnDestroySapper"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for destroying a sapper."
+    }
+
+    "Credit_OnDestroyBuilding"
+    {
+        "#format" "{1:d}" // 1: credits
+        "en" "You got {1} credits for destroying a building."
     }
 }
