@@ -177,7 +177,7 @@ public void DB_CreateDatabase()
     SQL_FastQuery(hDatabase, "CREATE TABLE items(item_id VARCHAR(128) NOT NULL PRIMARY KEY);");
     
     // inventory
-    SQL_FastQuery(hDatabase, "CREATE TABLE inventory(user_id INT NOT NULL, item_id INT NOT NULL);");
+    SQL_FastQuery(hDatabase, "CREATE TABLE inventory(user_id INT NOT NULL, item_id VARCHAR(128) NOT NULL PRIMARY KEY, equipped BOOL NOT NULL);");
 }
 
 public void DB_RepairDatabase()
@@ -190,7 +190,7 @@ public void DB_RepairDatabase()
 
     users = SQL_FastQuery(hDatabase, "SELECT user_id, auth_id, credits FROM users;");
     items = SQL_FastQuery(hDatabase, "SELECT item_id FROM items;");
-    inventory = SQL_FastQuery(hDatabase, "SELECT user_id, item_id FROM inventory;");
+    inventory = SQL_FastQuery(hDatabase, "SELECT user_id, item_id, equipped FROM inventory;");
 
     int repairs;
 
@@ -366,12 +366,12 @@ void DB_UpdateItems(StringMap shop)
 
 void DB_AddItem(YASP_ShopItem item)
 {
-    // id
-    char id[YASP_MAX_ITEM_ID_LENGTH];
-    id = item.id;
+    // class
+    char class[YASP_MAX_ITEM_CLASS_LENGTH];
+    class = item.class;
 
     char query[200];
-    Format(query, sizeof(query), "INSERT INTO items(item_id) VALUES ('%s');", id);
+    Format(query, sizeof(query), "INSERT INTO items(item_id) VALUES ('%s');", class);
 
     SQL_LockDatabase(hDatabase);
     SQL_FastQuery(hDatabase, query);

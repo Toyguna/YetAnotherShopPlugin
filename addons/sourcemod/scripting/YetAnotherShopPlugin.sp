@@ -4,11 +4,13 @@
 #include <tf2_stocks>
 
 #include <yasp>
+#include <morecolors>
 
 #include <YASP_Util.sp>
 #include <YASP_Manager.sp>
 #include <YASP_Database.sp>
 #include <YASP_Items.sp>
+#include <YASP_Credits.sp>
 
 #pragma newdecls required
 #pragma semicolon 1
@@ -25,23 +27,31 @@ public Plugin myinfo =
 
 // ==================== [ CONVARS ] ==================== //
 
-public ConVar g_cvDatabaseCfg;
+public ConVar g_cvDatabaseCfg; /* yasp_database_configuration */
 
-public ConVar g_cvChatPrefix;
+public ConVar g_cvChatPrefix; /* yasp_chat_prefix */
 
-public ConVar g_cvCommandCredits;
-public ConVar g_cvCommandShop;
-public ConVar g_cvCommandSetCredits;
+public ConVar g_cvCommandCredits;/* yasp_command_credits */
+public ConVar g_cvCommandShop; /* yasp_command_shop */
+public ConVar g_cvCommandSetCredits; /* yasp_setcredits */
 
-public ConVar g_cvPointsOnKill;
+public ConVar g_cvPointsOnKill; /* yasp_points_onkill */
+public ConVar g_cvPointsOnAssist; /* yasp_points_onassist */
+public ConVar g_cvPointsOnUber; /* yasp_points_onuber */
+public ConVar g_cvPointsOnCap; /* yasp_points_oncap */
+public ConVar g_cvPointsOnDestroySapper; /* yasp_points_ondestroysapper */
+public ConVar g_cvPointsOnDestoryBuilding;
 
-public ConVar g_cvPointsOnPlay;
-public ConVar g_cvPointsOnPlayInterval;
+public ConVar g_cvPointsOnPlay; /* yasp_points_onplay */
+public ConVar g_cvPointsOnPlayInterval; /* yasp_points_onplay_interval */
 
 
 // ==================== [ GLOBAL VARIABLES ] ==================== //
 
-char CFG_SHOP_DIR[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/yasp_shop.cfg";
+char CFGDIR_DIRECTORY[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin";
+char CFGDIR_SHOP[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin/shop.cfg";
+
+char CFGDIR_TYPE_NAMETAG[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin/type/nametag.cfg";
 
 public StringMap gsm_ShopItems;
 
@@ -121,14 +131,18 @@ void CreateConVars()
 	// Commands
 	g_cvCommandCredits = CreateConVar("yasp_command_credits", "sm_credits", "Command to see credits. (Command must start with 'sm_')");
 	g_cvCommandShop = CreateConVar("yasp_command_shop", "sm_shop", "Command to access shop. (Command must start with 'sm_')");
-	
 	g_cvCommandSetCredits = CreateConVar("yasp_command_setcredits", "sm_setcredits", "Set credits of user. (Command must start with 'sm_')");
 
 	// Points
+	g_cvPointsOnKill = CreateConVar("yasp_points_onkill", "2", "Points gained on kill.");
+	g_cvPointsOnAssist = CreateConVar("yasp_points_onassist", "2", "Points gained on assist.");
+	g_cvPointsOnUber = CreateConVar("yasp_points_onuber", "2", "Points gained on uber.");
+	g_cvPointsOnCap = CreateConVar("yasp_points_oncap", "2", "Points gained on cap.");
+	g_cvPointsOnDestroySapper = CreateConVar("yasp_points_ondestroysapper", "2", "Points gained on sapper destroy.");
+	g_cvPointsOnDestoryBuilding = CreateConVar("yasp_points_ondestroybuilding", "2", "Points gained on building destroy.");
+
 	g_cvPointsOnPlay = CreateConVar("yasp_points_onplay", "2", "Points gained while playing.");
 	g_cvPointsOnPlayInterval = CreateConVar("yasp_points_onplayer_interval", "30.0", "Interval between 'yasp_points_onplay', 0 or less to disable. (In seconds)", _, true, 15.0);
-	
-	g_cvPointsOnKill = CreateConVar("yasp_points_onkill", "2", "Points gained on kill.");
 }
 
 void ReadShop()
@@ -138,7 +152,13 @@ void ReadShop()
 	gsm_ShopItems.Clear();
 
 	KeyValues kv = new KeyValues("ShopItems");
-	kv.ImportFromFile(CFG_SHOP_DIR);
+	bool success = kv.ImportFromFile(CFGDIR_SHOP);
+
+	if (!success)
+	{
+		PrintToServer("[YASP] %T", "ReadShop_Fail_Dir", LANG_SERVER);
+		return;
+	}
 
 	char key[YASP_MAX_SHOP_CATEGORY_LENGTH];
 
@@ -161,7 +181,7 @@ void ReadShop()
 
 void ReadShopCategory(KeyValues kv, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
 {
-	char key[YASP_MAX_ITEM_ID_LENGTH];
+	char key[YASP_MAX_ITEM_CLASS_LENGTH];
 
 	kv.GotoFirstSubKey(false);
 
@@ -187,9 +207,9 @@ YASP_ShopItem ReadShopItem(KeyValues kv)
 {
 	YASP_ShopItem item;
 
-	// id
-	char id[YASP_MAX_ITEM_ID_LENGTH];
-	kv.GetSectionName(id, sizeof(id));
+	// class
+	char class[YASP_MAX_ITEM_CLASS_LENGTH];
+	kv.GetSectionName(class, sizeof(class));
 
 	// display
 	char display[YASP_MAX_ITEM_NAME_LENGTH];
@@ -204,10 +224,16 @@ YASP_ShopItem ReadShopItem(KeyValues kv)
 	price = kv.GetNum("price", 0);
 
 	// type
-	char type[YASP_MAX_ITEM_TYPE_LENGTH];
-	kv.GetString("type", type, sizeof(type));
+	char str_type[YASP_MAX_ITEM_TYPE_LENGTH];
+	kv.GetString("type", str_type, sizeof(str_type));
 
-	item.Init(id, display, buyable, price, YASP_NAMETAG);
+	YASP_ITEMTYPE type = YASP_GetEnumFromTypeStr(str_type, sizeof(str_type));
+
+	item.class = class;
+	item.display = display;
+	item.buyable = buyable;
+	item.price = price;
+	item.type = type;
 
 	return item;
 }
@@ -256,6 +282,8 @@ void HookEvents()
 {
 	// EventHookMode_Post
 	HookEvent("player_death", EventPost_PlayerDeath, EventHookMode_Post);
+	HookEvent("player_chargedeployed", EventPost_PlayerUber, EventHookMode_Post);
+	HookEvent("teamplay_point_captured", EventPost_TeamCapture, EventHookMode_Post);
 }
 
 void HookCreditsOnPlay()
@@ -275,14 +303,42 @@ public void EventPost_PlayerDeath(Event event, const char[] name, bool dontBroad
 {
 	int victim_id = event.GetInt("userid");
 	int killer_id = event.GetInt("attacker");
+	int assister_id = event.GetInt("assister");
 
 	int victim = GetClientOfUserId(victim_id);
 	int killer = GetClientOfUserId(killer_id);
+	int assister = GetClientOfUserId(assister_id);
 
 	// Give credits
-	Credits_OnKill(killer);
+	Credits_OnKill(killer, victim);
+	Credits_OnAssist(assister);
 }
 
+public void EventPost_PlayerUber(Event event, const char[] name, bool dontBroadcast)
+{
+	int medic_id = event.GetInt("userid");
+	
+	int medic = GetClientOfUserId(medic_id);
+
+	// Give credits
+	Credits_OnUber(medic);
+}
+
+public void EventPost_TeamCapture(Event event, const char[] name, bool dontBroadcast)
+{
+	char str_cappers[MAXPLAYERS + 1];
+	event.GetString("cappers", str_cappers, sizeof(str_cappers));
+	
+	for (int i = 0; i < sizeof(str_cappers); i++)
+	{
+		int client = StringToInt(str_cappers[i]);
+
+		if (!IsClientValid(client)) continue;
+
+		// Give credits
+		Credits_OnCap(client);
+	}
+}
 
 // ==================== [ COMMANDS ] ==================== //
 
@@ -359,30 +415,6 @@ public Action Command_Shop(int client, int args)
 
 // ==================== [ MENUS ] ==================== //
 
-
-// ==================== [ CREDITS ] ==================== //
-
-public Action Credits_OnPlay(Handle timer)
-{
-	int amount = g_cvPointsOnPlay.IntValue;
-
-	for (int i = 0; i < MaxClients; i++)
-	{
-		if (!IsClientValid(i)) continue;
-		if (IsFakeClient(i)) continue;
-
-		YASP_AddClientCredits(i, amount);
-	}
-
-	return Plugin_Continue;
-}
-
-public void Credits_OnKill(int killer)
-{
-	int amount = g_cvPointsOnKill.IntValue;
-
-	YASP_AddClientCredits(killer, amount);
-}
 
 // ==================== [ GETTERS ] ==================== //
 public StringMap GetShopItemsMap()
