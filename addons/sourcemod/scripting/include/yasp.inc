@@ -11,7 +11,7 @@
 #define YASP_MAX_ITEM_NAME_LENGTH 128
 #define YASP_MAX_ITEM_TYPE_LENGTH 16
 
-#define YASP_STEAMAUTH_2 20
+#define YASP_STEAMAUTH_2 24
 
 #define YASP_MAX_COMMAND_LENGTH 32
 #define YASP_MAX_PREFIX_LENGTH 64
@@ -82,3 +82,11 @@ native YASP_ITEMTYPE YASP_GetEnumFromTypeStr(char[] string, int size);
  * @return  1 if operation is successful, otherwise -1
 */
 native int YASP_GetTypeStrFromEnum(YASP_ITEMTYPE type, char[] buffer, int size);
+
+/*
+ * Give item to client.
+ * 
+ * @param client    Client Index
+ * @param class     Item class
+ */
+native void YASP_GiveItemToClient(int client, char[] class);
