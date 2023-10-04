@@ -3,3 +3,4 @@
 - An inventory system (complete, refunding left)
 - Support for color text
 - UI (store is complete, not ui)
+- Clear removed items from database
