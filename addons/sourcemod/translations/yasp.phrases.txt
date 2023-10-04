@@ -33,7 +33,7 @@
     "DB_SuccessRepairDatabase"
     {
         "#format" "{1:d}"
-        "en" "Repaired '{1}' tables."
+        "en" "Repaired '{1}' table(s)."
     }
 
     "DB_CreateClientEntry"
@@ -94,7 +94,7 @@
 
     "ReadShop_Begin"
     {
-        "en" "Reading shop items."
+        "en" "Reading shop items..."
     }
 
     "ReadShop_Finish"
@@ -102,47 +102,57 @@
         "en" "Read shop items."
     }
 
-    "Credit_OnPlay"
+    "Credits_OnPlay"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for playing."
     }
 
-    "Credit_OnKill"
+    "Credits_OnKill"
     {
         "#format" "{1:d,2:s}" // 1: credits, 2: victim's name
         "en" "You got {1} credits for killing {2}."
     }
 
     
-    "Credit_OnAssist"
+    "Credits_OnAssist"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for assisting in a player's death."
     }
 
-    "Credit_OnUber"
+    "Credits_OnUber"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for ubering a player."
     }
 
 
-    "Credit_OnCap"
+    "Credits_OnCap"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for capturing a point."
     }
 
-    "Credit_OnDestroySapper"
+    "Credits_OnDestroySapper"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for destroying a sapper."
     }
 
-    "Credit_OnDestroyBuilding"
+    "Credits_OnDestroyBuilding"
     {
         "#format" "{1:d}" // 1: credits
         "en" "You got {1} credits for destroying a building."
+    }
+
+    "Shop_NotEnoughCredits"
+    {
+        "en" "You don't have enough credits."
+    }
+
+    "Shop_AlreadyOwn"
+    {
+        "en" "You already own this item."
     }
 }
