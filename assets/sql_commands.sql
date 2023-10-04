@@ -7,12 +7,12 @@ CREATE TABLE users(
 );
 
 CREATE TABLE items(
-	item_id VARCHAR(128) NOT NULL PRIMARY KEY
+	item_class VARCHAR(128) NOT NULL PRIMARY KEY
 );
 
 CREATE TABLE inventory(
 	user_id INT NOT NULL,
-	item_id VARCHAR(128) NOT NULL PRIMARY KEY,
+	item_class VARCHAR(128) NOT NULL PRIMARY KEY,
     equipped BOOL NOT NULL
 );
 
@@ -24,10 +24,6 @@ FROM INFORMATION_SCHEMA.TABLES
 WHERE TABLE_SCHEMA = 'yamp';
 
 -- verify tables one by one
-SELECT * FROM users;
-SELECT * FROM items;
-SELECT * FROM inventory;
-
 -- drop tables
 DROP TABLE users;
 DROP TABLE items;
