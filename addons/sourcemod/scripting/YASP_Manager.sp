@@ -8,8 +8,6 @@
 // ==================== [ GLOBAL VARIABLES ] ==================== //
 
 public int ga_iPlayerCredits[MAXPLAYERS + 1];
-public bool ga_bPlayerInvLoaded[MAXPLAYERS + 1] = { false, ... };
-
 
 // ==================== [ NATIVES ] ==================== //
 
@@ -126,4 +124,22 @@ public int Native_YASP_GetTypeStrFromEnum(Handle plugin, int numParams)
     }
 
     return -1;
+}
+
+public int Native_YASP_GiveItemToClient(Handle plugin, int numParams)
+{
+    int client = GetNativeCell(1);
+    char class[YASP_MAX_ITEM_CLASS_LENGTH];
+
+    GetNativeString(2, class, sizeof(class));
+
+    // update in-game inventory
+    int itemid = ICI_GetIdOfClass(class);
+
+    Inventory_AddItem(client, itemid);
+
+    // update database
+    DB_SaveClient(client);
+
+    return 0;
 }

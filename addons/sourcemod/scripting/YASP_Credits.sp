@@ -23,6 +23,8 @@ public Action Credits_OnPlay(Handle timer)
 		if (IsFakeClient(i)) continue;
 
 		YASP_AddClientCredits(i, amount);
+
+		if (!IsClientInGame(i)) continue;
 		PrintToChat(i, "%s %T", prefix, "Credits_OnPlay", LANG_SERVER, amount);
 	}
 
