@@ -3,5 +3,5 @@
 - An inventory system (complete, refunding left)
 - Support for color text
 - UI (store is complete, not ui)
-- Clear removed items from database
+- Clear removed items from database (already done)
 - FORGOT TO CLEAR HASHMAP ENTRY WHEN CLIENT LEAVES, MEMORY LEAK!!!! (fixed)
