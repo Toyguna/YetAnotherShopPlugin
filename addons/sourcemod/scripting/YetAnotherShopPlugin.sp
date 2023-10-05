@@ -31,6 +31,7 @@ public ConVar g_cvDatabaseCfg; /* yasp_database_configuration */
 
 public ConVar g_cvChatPrefix; /* yasp_chat_prefix */
 public ConVar g_cvShopTitle; /* yasp_shop_title */
+public ConVar g_cvInventoryTitle; /* yasp_inventory_title */
 
 public ConVar g_cvCommandCredits;/* yasp_command_credits */
 public ConVar g_cvCommandShop; /* yasp_command_shop */
@@ -50,9 +51,7 @@ public ConVar g_cvPointsOnPlayInterval; /* yasp_points_onplay_interval */
 
 // ==================== [ GLOBAL VARIABLES ] ==================== //
 
-char CFGDIR_DIRECTORY[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin";
 char CFGDIR_SHOP[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin/shop.cfg";
-
 char CFGDIR_TYPE_NAMETAG[PLATFORM_MAX_PATH] = "addons/sourcemod/configs/YetAnotherShopPlugin/type/nametag.cfg";
 
 public StringMap gsm_ShopItems;
@@ -139,6 +138,7 @@ void CreateConVars()
 	// Customization
 	g_cvChatPrefix = CreateConVar("yasp_chat_prefix", "[YASP]", "Prefix of chat messages.");
 	g_cvShopTitle = CreateConVar("yasp_shop_title", "Shop", "Title of shop menu.");
+	g_cvInventoryTitle = CreateConVar("yasp_inventory_title", "Inventory", "Title of inventory menu.");
 
 	// Commands
 	g_cvCommandCredits = CreateConVar("yasp_command_credits", "sm_credits", "Command to see credits. (Command must start with 'sm_')");
@@ -206,7 +206,7 @@ void ReadShopCategory(KeyValues kv, char category[YASP_MAX_SHOP_CATEGORY_LENGTH]
 		kv.GetSectionName(key, sizeof(key));
 
 		YASP_ShopItem item;
-		item = ReadShopItem(kv);
+		item = ReadShopItem(kv, category);
 
 		tasks.PushArray(item, sizeof(item));
 		
@@ -216,7 +216,7 @@ void ReadShopCategory(KeyValues kv, char category[YASP_MAX_SHOP_CATEGORY_LENGTH]
 	gsm_ShopItems.SetValue(category, tasks, true);
 }
 
-YASP_ShopItem ReadShopItem(KeyValues kv)
+YASP_ShopItem ReadShopItem(KeyValues kv, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
 {
 	YASP_ShopItem item;
 
@@ -248,6 +248,7 @@ YASP_ShopItem ReadShopItem(KeyValues kv)
 
 	item.class = class;
 	item.display = display;
+	item.category = category;
 	item.buyable = buyable;
 	item.price = price;
 	item.refundable = refundable;
@@ -272,9 +273,13 @@ void InitCommands()
 	char cmd_setcredits[YASP_MAX_COMMAND_LENGTH];
 	g_cvCommandSetCredits.GetString(cmd_setcredits, sizeof(cmd_setcredits));
 
+	char cmd_inventory[YASP_MAX_COMMAND_LENGTH];
+	g_cvCommandInventory.GetString(cmd_inventory, sizeof(cmd_inventory));
+
 	RegConsoleCmd(cmd_credits, Command_Credits, "Show client credits.");
 	RegConsoleCmd(cmd_shop, Command_Shop, "Open shop.");
-
+	RegConsoleCmd(cmd_inventory, Command_Inventory, "Open inventory.");
+	
 	RegAdminCmd(cmd_setcredits, Command_SetCredits, ADMFLAG_CONVARS, "Set credits of client.");
 }
 
@@ -293,7 +298,9 @@ void UnloadPlayer(int client)
 	PrintToServer("[YASP] %T", "DB_SaveClient", LANG_SERVER, name, client);
 	DB_SaveClient(client);
 
-	ga_bPlayerInvLoaded[client] = false;
+	Inventory_Unload(client);
+
+	SetClientInventoryLoaded(client, false);
 	ga_iPlayerCredits[client] = 0;
 }
 
@@ -429,6 +436,8 @@ public Action Command_SetCredits(int client, int args)
 
 public Action Command_Shop(int client, int args)
 {
+	if (!GetClientInventoryLoaded(client)) return Plugin_Handled;
+
 	Menu menu = MenuConstructor_Shop();
 	menu.Display(client, 60);
 
@@ -437,12 +446,18 @@ public Action Command_Shop(int client, int args)
 
 public Action Command_Inventory(int client, int args)
 {
+	if (!GetClientInventoryLoaded(client)) return Plugin_Handled;
 
+	Menu menu = MenuConstructor_Inventory(client);
+	menu.Display(client, 60);
 
 	return Plugin_Handled;
 }
 
 // ==================== [ MENUS ] ==================== //
+
+
+// ==================== [ Shop ]
 
 public Menu MenuConstructor_Shop()
 {
@@ -469,9 +484,9 @@ public Menu MenuConstructor_Shop()
 	return menu;
 }
 
-public Menu MenuConstructor_Category(char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
+public Menu MenuConstructor_ShopCategory(char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
 {
-	Menu page = new Menu(MenuCallback_Category);
+	Menu page = new Menu(MenuCallback_ShopCategory);
 	SetMenuExitBackButton(page, true);
 
 	page.SetTitle(category);
@@ -496,9 +511,9 @@ public Menu MenuConstructor_Category(char category[YASP_MAX_SHOP_CATEGORY_LENGTH
 	return page;
 }
 
-public Menu MenuConstructor_ItemPage(YASP_ShopItem item, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
+public Menu MenuConstructor_ShopItemPage(YASP_ShopItem item, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
 {
-	Menu itempage = new Menu(MenuCallback_ItemPage);
+	Menu itempage = new Menu(MenuCallback_ShopItemPage);
 
 	int cancel = ITEMDRAW_DEFAULT;
 	if (!item.buyable) cancel = ITEMDRAW_DISABLED;
@@ -507,18 +522,26 @@ public Menu MenuConstructor_ItemPage(YASP_ShopItem item, char category[YASP_MAX_
 
 	itempage.AddItem("1", "", ITEMDRAW_SPACER);
 	
+	// item name
 	char str_buyitem[YASP_MAX_ITEM_NAME_LENGTH + 6];
 	Format(str_buyitem, sizeof(str_buyitem), "Item: %s", item.display);
 	itempage.AddItem("2", str_buyitem, cancel);
 
-	char str_priceitem[40];
-	Format(str_priceitem, sizeof(str_priceitem), "Price: %d", item.price);
-	itempage.AddItem("3", str_priceitem, cancel);
+	// price
+	if (cancel == ITEMDRAW_DEFAULT)
+	{
+		char str_priceitem[40];
+		Format(str_priceitem, sizeof(str_priceitem), "Price: %d", item.price);
+		itempage.AddItem("3", str_priceitem, ITEMDRAW_DEFAULT);
+	}
 
 	itempage.AddItem("4", "", ITEMDRAW_SPACER);
 
+	// buy button
 	itempage.AddItem("buy", "Buy", cancel);
-	itempage.AddItem("cancel", "Cancel", cancel);
+
+	// cancel button
+	itempage.AddItem("cancel", "Cancel");
 
 	itempage.AddItem(category, "category", ITEMDRAW_SPACER);
 
@@ -543,7 +566,7 @@ public int MenuCallback_Shop(Menu menu, MenuAction action, int param1, int param
 		{
 			menu.GetItem(param2, category, sizeof(category));
 
-			page = MenuConstructor_Category(category);
+			page = MenuConstructor_ShopCategory(category);
 			page.Display(param1, 60);
 		}
 		case MenuAction_End:
@@ -555,7 +578,7 @@ public int MenuCallback_Shop(Menu menu, MenuAction action, int param1, int param
 	return 0;
 }
 
-public int MenuCallback_Category(Menu menu, MenuAction action, int param1, int param2)
+public int MenuCallback_ShopCategory(Menu menu, MenuAction action, int param1, int param2)
 {
 	char category[YASP_MAX_SHOP_CATEGORY_LENGTH];
 	menu.GetTitle(category, sizeof(category));
@@ -580,7 +603,7 @@ public int MenuCallback_Category(Menu menu, MenuAction action, int param1, int p
 				if (StrEqual(item.class, class)) break;
 			}
 
-			Menu itempage = MenuConstructor_ItemPage(item, category);
+			Menu itempage = MenuConstructor_ShopItemPage(item, category);
 
 			itempage.Display(param1, 60);
 		}
@@ -603,7 +626,7 @@ public int MenuCallback_Category(Menu menu, MenuAction action, int param1, int p
 	return 0;
 }
 
-public int MenuCallback_ItemPage(Menu menu, MenuAction action, int param1, int param2)
+public int MenuCallback_ShopItemPage(Menu menu, MenuAction action, int param1, int param2)
 {
 	char key[32];
 
@@ -653,7 +676,7 @@ public int MenuCallback_ItemPage(Menu menu, MenuAction action, int param1, int p
 			{
 				GetMenuItem(menu, param2 + 1, category, sizeof(category));
 
-				Menu menucategory = MenuConstructor_Category(category);
+				Menu menucategory = MenuConstructor_ShopCategory(category);
 
 				menucategory.Display(param1, 60);
 			}
@@ -668,10 +691,275 @@ public int MenuCallback_ItemPage(Menu menu, MenuAction action, int param1, int p
 	return 0;
 }
 
+// ==================== [ Inventory ]
+public Menu MenuConstructor_Inventory(int client)
+{
+	Menu menu = new Menu(MenuCallback_Inventory);
+	
+	char title[32];
+	g_cvInventoryTitle.GetString(title, sizeof(title));
+	menu.SetTitle(title);
+
+	ArrayList categories = new ArrayList(YASP_MAX_SHOP_CATEGORY_LENGTH);
+	ArrayList list = Inventory_GetInventory(client);
+
+	YASP_ShopItem item;
+	char class[YASP_MAX_ITEM_CLASS_LENGTH];
+
+	for (int i = 0; i < list.Length; i++)
+	{
+		int itemid = list.Get(i);
+
+		ICI_GetClassOfId(itemid, class, sizeof(class));
+		GetShopItem(class, item, sizeof(item));
+
+		if (categories.FindString(item.category) != -1) continue;
+
+		categories.PushString(item.category);
+
+		menu.AddItem(item.category, item.category);
+	}
+
+	delete categories;
+	return menu;
+}
+
+public Menu MenuConstructor_InventoryCategory(int client, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
+{
+	Menu menucategory = new Menu(MenuCallback_InventoryCategory);
+	SetMenuExitBackButton(menucategory, true);
+	menucategory.SetTitle(category);
+
+	ArrayList inv = Inventory_GetInventory(client);
+
+	YASP_ShopItem item;
+	char class[YASP_MAX_ITEM_CLASS_LENGTH];
+
+	for (int i = 0; i < inv.Length; i++)
+	{
+		int itemid = inv.Get(i);
+		ICI_GetClassOfId(itemid, class, sizeof(class));
+
+		GetShopItem(class, item, sizeof(item));
+
+		if (StrEqual(category, item.category))
+		{
+			menucategory.AddItem(class, class);
+		}
+	}
+
+	return menucategory;
+}
+
+public Menu MenuConstructor_InventoryItem(int client, char class[YASP_MAX_ITEM_CLASS_LENGTH])
+{
+	Menu menu = new Menu(MenuCallback_InventoryItem);
+	SetMenuExitBackButton(menu, true);
+
+	YASP_ShopItem item;
+	GetShopItem(class, item, sizeof(item));
+
+	menu.SetTitle(item.display);
+
+	int itemid = ICI_GetIdOfClass(class);
+
+	ArrayList equips = Inventory_GetEquipped(client);
+	bool item_equipped = equips.FindValue(itemid) != -1;
+
+	// class id (id: 0)
+	menu.AddItem(class, "", ITEMDRAW_SPACER);
+
+	// item name
+	char str_display[YASP_MAX_ITEM_NAME_LENGTH + 7];
+	Format(str_display, sizeof(str_display), "Item: %s", item.display);
+	menu.AddItem("display", str_display);
+
+	// spacer
+	menu.AddItem("2", "", ITEMDRAW_SPACER);
+
+	// equip/dequip
+	if (!item_equipped)
+	{
+		menu.AddItem("equip", "Equip Item");
+	}
+	else
+	{
+		menu.AddItem("dequip", "Dequip Item");
+	}
+
+	// spacer
+	menu.AddItem("3", "", ITEMDRAW_SPACER);
+
+	// refund
+	if (item.refundable < 0)
+	{
+		menu.AddItem("refund", "Refund Item", ITEMDRAW_DISABLED);
+	}
+	else
+	{
+		menu.AddItem("refund", "Refund Item");
+	}
+
+	// spacer
+	menu.AddItem("4", "", ITEMDRAW_SPACER);
+
+	return menu;
+}
+
+public int MenuCallback_Inventory(Menu menu, MenuAction action, int param1, int param2)
+{
+	char category[YASP_MAX_SHOP_CATEGORY_LENGTH];
+
+	switch(action)
+	{
+		case MenuAction_Select:
+		{
+			GetMenuItem(menu, param2, category, sizeof(category));
+
+			Menu menucategory = MenuConstructor_InventoryCategory(param1, category);
+			menucategory.Display(param1, 60);
+		}
+		case MenuAction_End:
+		{
+			delete menu;
+		}
+	}
+
+	return 0;
+}
+
+public int MenuCallback_InventoryCategory(Menu menu, MenuAction action, int param1, int param2)
+{
+	char item[YASP_MAX_SHOP_CATEGORY_LENGTH];
+
+	switch(action)
+	{
+		case MenuAction_Select:
+		{
+			GetMenuItem(menu, param2, item, sizeof(item));
+
+			Menu itemmenu = MenuConstructor_InventoryItem(param1, item);
+			itemmenu.Display(param1, 60);
+		}
+		case MenuAction_Cancel:
+		{
+			if (param2 == MenuCancel_ExitBack)
+			{
+				Menu invmenu = MenuConstructor_Inventory(param1);
+				invmenu.Display(param1, 60);
+			}
+		}
+		case MenuAction_End:
+		{
+			delete menu;
+		}
+	}
+
+	return 0;
+}
+
+public int MenuCallback_InventoryItem(Menu menu, MenuAction action, int param1, int param2)
+{
+	char key[YASP_MAX_ITEM_CLASS_LENGTH];
+	char class[YASP_MAX_ITEM_CLASS_LENGTH];
+
+	char prefix[YASP_MAX_PREFIX_LENGTH];
+	g_cvChatPrefix.GetString(prefix, sizeof(prefix));
+
+	switch(action)
+	{
+		case MenuAction_Select:
+		{
+			GetMenuItem(menu, param2, key, sizeof(key));
+
+			GetMenuItem(menu, 0, class, sizeof(class));
+
+			if (StrEqual(key, "refund"))
+			{
+				Inventory_RefundItem(param1, class);
+				PrintToChat(param1, "%s %T", prefix, "Shop_RefundItem", LANG_SERVER);
+			}
+
+			if (StrEqual(key, "equip"))
+			{
+				int itemid = ICI_GetIdOfClass(class);
+
+				Inventory_EquipItem(param1, itemid);
+
+				Menu itemmenu = MenuConstructor_InventoryItem(param1, class);
+				itemmenu.Display(param1, 60);
+			}
+
+			if (StrEqual(key, "dequip"))
+			{
+				int itemid = ICI_GetIdOfClass(class);
+				
+				Inventory_DequipItem(param1, itemid);
+				
+				Menu itemmenu = MenuConstructor_InventoryItem(param1, class);
+				itemmenu.Display(param1, 60);
+			}
+		}
+		case MenuAction_Cancel:
+		{
+			if (param2 == MenuCancel_ExitBack)
+			{
+				GetMenuItem(menu, 0, class, sizeof(class));
+
+				YASP_ShopItem item;
+				GetShopItem(class, item, sizeof(item));
+
+				Menu categorymenu = MenuConstructor_InventoryCategory(param1, item.category);
+				categorymenu.Display(param1, 60);
+			}
+		}
+		case MenuAction_End:
+		{
+			delete menu;
+		}
+	}
+
+	return 0;
+}
 
 // ==================== [ GETTERS ] ==================== //
 
 public StringMap GetShopItemsMap()
 {
 	return gsm_ShopItems;
+}
+
+public bool GetShopItem(char class[YASP_MAX_ITEM_CLASS_LENGTH], YASP_ShopItem buffer, int size)
+{
+	if (size < 1) return false;
+
+	bool found = false;
+
+	YASP_ShopItem item;
+	ArrayList list;
+	StringMapSnapshot snapshot = gsm_ShopItems.Snapshot();
+
+	char key[YASP_MAX_SHOP_CATEGORY_LENGTH];
+
+	for (int i = 0; i < snapshot.Length; i++)
+	{
+		snapshot.GetKey(i, key, sizeof(key));
+
+		gsm_ShopItems.GetValue(key, list);
+
+		for (int j = 0; j < list.Length; j++)
+		{
+			list.GetArray(j, item, sizeof(item));
+
+			if (StrEqual(item.class, class)) {
+				list.GetArray(j, buffer, size);
+
+				found = true;
+				break;
+			}
+		}
+	}
+
+	delete snapshot;
+	return found;
 }

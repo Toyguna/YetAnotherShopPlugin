@@ -28,6 +28,7 @@ enum struct YASP_ShopItem
 {
 	char class[YASP_MAX_ITEM_CLASS_LENGTH];
 	char display[YASP_MAX_ITEM_NAME_LENGTH];
+	char category[YASP_MAX_SHOP_CATEGORY_LENGTH];
 
 	bool buyable;
 	int price;
@@ -103,7 +104,7 @@ public void Inventory_CreateList(int client)
 {
 	if (!IsClientValid(client)) return;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 
 	gsm_aPlayerInventory.SetValue(str_client, new ArrayList(), true);
@@ -114,7 +115,7 @@ public void Inventory_AddItem(int client, int itemid)
 {
 	if (!IsClientValid(client)) return;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 
 	ArrayList inv;
@@ -131,7 +132,7 @@ public void Inventory_RemoveItem(int client, int itemid)
 {
 	if (!IsClientValid(client)) return;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
@@ -150,7 +151,7 @@ public bool Inventory_HasItem(int client, int itemid)
 {
 	if (!IsClientValid(client)) return false;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
@@ -163,7 +164,7 @@ public ArrayList Inventory_GetInventory(int client)
 {	
 	if (!IsClientValid(client)) return null;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
@@ -186,17 +187,19 @@ public bool Inventory_EquipItem(int client, int itemid)
 {
 	if (!IsClientValid(client)) return false;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
 	gsm_aPlayerEquipped.GetValue(str_client, inv);
 
-	if (inv.FindValue(itemid) != -1) return true; // if already equipped
+	int index = inv.FindValue(itemid);
+
+	if (index != -1) return true; // if already equipped
 
 	inv.Push(itemid);
 	
-	gsm_aPlayerInventory.SetValue(str_client, inv, true);
+	gsm_aPlayerEquipped.SetValue(str_client, inv, true);
 
 	return false;
 }
@@ -213,17 +216,19 @@ public bool Inventory_DequipItem(int client, int itemid)
 {
 	if (!IsClientValid(client)) return false;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
 	gsm_aPlayerEquipped.GetValue(str_client, inv);
 
-	if (inv.FindValue(itemid) != -1) return true; // if already dequipped
+	int index = inv.FindValue(itemid)
 
-	inv.Erase(itemid);
+	if (index == -1) return true; // if already dequipped
+
+	inv.Erase(index);
 	
-	gsm_aPlayerInventory.SetValue(str_client, inv, true);
+	gsm_aPlayerEquipped.SetValue(str_client, inv, true);
 
 	return false;
 }
@@ -232,13 +237,100 @@ public ArrayList Inventory_GetEquipped(int client)
 {
 	if (!IsClientValid(client)) return null;
 
-	char str_client[2];
+	char str_client[3];
 	IntToString(client, str_client, sizeof(str_client));
 	
 	ArrayList inv;
 	gsm_aPlayerEquipped.GetValue(str_client, inv);
 
 	return inv;
+}
+
+
+
+public void Inventory_Clear(int client)
+{
+	if (!IsClientValid(client)) return;
+
+	char str_client[3];
+	IntToString(client, str_client, sizeof(str_client));
+
+	ArrayList inv;
+	gsm_aPlayerInventory.GetValue(str_client, inv);
+	inv.Clear();
+
+	ArrayList equipped;
+	gsm_aPlayerEquipped.GetValue(str_client, equipped);
+	equipped.Clear();
+	
+	gsm_aPlayerInventory.SetValue(str_client, inv, true);
+	gsm_aPlayerEquipped.SetValue(str_client, equipped, true);
+}
+
+public void Inventory_Unload(int client)
+{
+	if (!IsClientValid(client)) return;
+
+	char str_client[3];
+	IntToString(client, str_client, sizeof(str_client));
+
+	ArrayList inv;
+	gsm_aPlayerInventory.GetValue(str_client, inv);
+	delete inv;
+
+	ArrayList equipped;
+	gsm_aPlayerEquipped.GetValue(str_client, equipped);
+	delete equipped;
+
+	gsm_aPlayerInventory.Remove(str_client);
+	gsm_aPlayerEquipped.Remove(str_client);
+}
+
+public void Inventory_RefundItem(int client, char class[YASP_MAX_ITEM_CLASS_LENGTH])
+{
+	if (!IsClientValid(client)) return;
+	if (!GetClientInventoryLoaded(client)) return;
+
+	int itemid = ICI_GetIdOfClass(class);
+
+	YASP_ShopItem item;
+	GetShopItem(class, item, sizeof(item));
+
+	if (!item) return;
+
+	float refundable = item.refundable;
+
+	// if refundable == -1, means not refundable
+	if (refundable < 0) return;
+
+	// avoid division by 0; no refund is given anyway
+	if (refundable != 0)
+	{
+		int price = item.price;
+
+		int refund = RoundFloat(price / refundable);
+
+		int credits = YASP_GetClientCredits(client);
+		YASP_SetClientCredits(client, credits + refund);
+	}
+
+	ArrayList inv = Inventory_GetInventory(client);
+	ArrayList equipped = Inventory_GetEquipped(client);
+
+	int inv_index = inv.FindValue(itemid);
+	int eqp_index = equipped.FindValue(itemid);
+
+	if (inv_index != -1)
+	{
+		inv.Erase(inv_index)
+	}
+
+	if (eqp_index != -1)
+	{
+		inv.Erase(inv_index);
+	}
+
+	DB_SaveClient(client);
 }
 
 // ==================== [ GETTERS ] ==================== //
