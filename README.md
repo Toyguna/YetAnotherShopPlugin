@@ -29,7 +29,7 @@ Inside your `addons/sourcemod/configs` folder you should see a folder named "Yet
 
         "price" "5" // Price of item
         "buyable" "1" // Is item buyable? (0: false, 1: true)
-        "refundable" "1" // Is item refundable? (0: false, 1: true)
+        "refundable" "1" // Is item refundable? (0: false; 0-1: percentage of refund given)
 
         "type" "nametag" // Type of the item
     }
