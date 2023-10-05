@@ -23,16 +23,55 @@ Inside your `addons/sourcemod/configs` folder you should see a folder named "Yet
 ```
 "ShopItems"
 {
-    "nt_example" // Class of item, for means of clean code, you can prefix the items with it's type
-    {
-        "display" "Example" // Display name of item
+	"NameTags"
+	{
+		"nt_example" // Class of item, for means of clean code, you can prefix the items with it's type
+		{
+			"display" "Example" // Display name of item
 
-        "price" "5" // Price of item
-        "buyable" "1" // Is item buyable? (0: false, 1: true)
-        "refundable" "1" // Is item refundable? (-1: false; 0-1: percentage of refund given)
+			"price" "5" // Price of item
+			"buyable" "1" // Is item buyable? (0: false, 1: true)
+			"refundable" "1" // Is item refundable? (0: false, 1: true)
 
-        "type" "nametag" // Type of the item
-    }
+			"type" "nametag" // Type of the item
+		}
+		
+		"nt_winner"
+		{
+			"display" "Winner"
+			
+			"price" "50"
+			"buyable" "1"
+			"refundable" "0"
+			
+			"type" "nametag"
+		}
+		
+		"nt_notbuyable"
+		{
+			"display" "Not Buyable?"
+			
+			"price" "50"
+			"buyable" "0"
+			"refundable" "0"
+			
+			"type" "nametag"
+		}
+	}
+	
+	"Trails"
+	{
+		"tr_troll"
+		{
+			"display" "troll"
+			
+			"price" "5"
+			"buyable" "1"
+			"refundable" "0.5"
+			
+			"type" "trail"
+		}
+	}
 }
 ```
 
