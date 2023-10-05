@@ -155,4 +155,9 @@
     {
         "en" "You already own this item."
     }
+
+    "Shop_RefundItem"
+    {
+        "en" "Item refunded."
+    }
 }
