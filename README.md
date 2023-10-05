@@ -23,7 +23,7 @@ Inside your `addons/sourcemod/configs` folder you should see a folder named "Yet
 ```
 "ShopItems"
 {
-	"NameTags"
+	"NameTags" // Category
 	{
 		"nt_example" // Class of item, for means of clean code, you can prefix the items with it's type
 		{
