@@ -43,7 +43,7 @@ public ConVar g_cvPointsOnAssist; /* yasp_points_onassist */
 public ConVar g_cvPointsOnUber; /* yasp_points_onuber */
 public ConVar g_cvPointsOnCap; /* yasp_points_oncap */
 public ConVar g_cvPointsOnDestroySapper; /* yasp_points_ondestroysapper */
-public ConVar g_cvPointsOnDestoryBuilding;
+public ConVar g_cvPointsOnDestoryBuilding; /* yasp_points_ondestroybuilding */
 
 public ConVar g_cvPointsOnPlay; /* yasp_points_onplay */
 public ConVar g_cvPointsOnPlayInterval; /* yasp_points_onplay_interval */
@@ -92,12 +92,7 @@ public APLRes AskPluginLoad2()
 	return APLRes_Success;
 }
 
-public void OnClientPutInServer(int client)
-{
-
-}
-
-public void OnClientAuthorized(int client)
+public void OnClientPostAdminCheck(int client)
 {
 	LoadPlayer(client);
 }
@@ -481,10 +476,12 @@ public Menu MenuConstructor_Shop()
 
 	delete snapshot;
 
+	menu.AddItem("1", "", ITEMDRAW_SPACER);
+
 	return menu;
 }
 
-public Menu MenuConstructor_ShopCategory(char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
+public Menu MenuConstructor_ShopCategory(int client, char category[YASP_MAX_SHOP_CATEGORY_LENGTH])
 {
 	Menu page = new Menu(MenuCallback_ShopCategory);
 	SetMenuExitBackButton(page, true);
@@ -494,18 +491,21 @@ public Menu MenuConstructor_ShopCategory(char category[YASP_MAX_SHOP_CATEGORY_LE
 	ArrayList items;
 	gsm_ShopItems.GetValue(category, items);
 
-	char class[YASP_MAX_ITEM_CLASS_LENGTH];
-	char display[YASP_MAX_ITEM_NAME_LENGTH];
-
 	for (int i = 0; i < items.Length; i++)
 	{
 		YASP_ShopItem item;
 		items.GetArray(i, item, sizeof(item));
 
-		class = item.class;
-		display = item.display;
+		int itemid = ICI_GetIdOfClass(item.class);
 
-		page.AddItem(class, display);
+		if (Inventory_HasItem(client, itemid))
+		{
+			page.AddItem(item.class, item.display, ITEMDRAW_DISABLED);
+		}
+		else
+		{
+			page.AddItem(item.class, item.display);
+		}
 	}
 
 	return page;
@@ -566,7 +566,7 @@ public int MenuCallback_Shop(Menu menu, MenuAction action, int param1, int param
 		{
 			menu.GetItem(param2, category, sizeof(category));
 
-			page = MenuConstructor_ShopCategory(category);
+			page = MenuConstructor_ShopCategory(param1, category);
 			page.Display(param1, 60);
 		}
 		case MenuAction_End:
@@ -670,13 +670,19 @@ public int MenuCallback_ShopItemPage(Menu menu, MenuAction action, int param1, i
 				{
 					PrintToChat(param1, "%s %T", prefix, "Shop_NotEnoughCredits", LANG_SERVER);
 				}
+
+				GetMenuItem(menu, param2 + 2, category, sizeof(category));
+
+				Menu menucategory = MenuConstructor_ShopCategory(param1, category);
+
+				menucategory.Display(param1, 60);
 			}
 
 			if (StrEqual("cancel", key))
 			{
 				GetMenuItem(menu, param2 + 1, category, sizeof(category));
 
-				Menu menucategory = MenuConstructor_ShopCategory(category);
+				Menu menucategory = MenuConstructor_ShopCategory(param1, category);
 
 				menucategory.Display(param1, 60);
 			}
@@ -720,6 +726,8 @@ public Menu MenuConstructor_Inventory(int client)
 		menu.AddItem(item.category, item.category);
 	}
 
+	menu.AddItem("1", "", ITEMDRAW_SPACER);
+
 	delete categories;
 	return menu;
 }
@@ -744,7 +752,7 @@ public Menu MenuConstructor_InventoryCategory(int client, char category[YASP_MAX
 
 		if (StrEqual(category, item.category))
 		{
-			menucategory.AddItem(class, class);
+			menucategory.AddItem(class, item.display);
 		}
 	}
 
@@ -874,10 +882,16 @@ public int MenuCallback_InventoryItem(Menu menu, MenuAction action, int param1, 
 
 			GetMenuItem(menu, 0, class, sizeof(class));
 
+			YASP_ShopItem item;
+			GetShopItem(class, item, sizeof(item));
+
 			if (StrEqual(key, "refund"))
 			{
 				Inventory_RefundItem(param1, class);
 				PrintToChat(param1, "%s %T", prefix, "Shop_RefundItem", LANG_SERVER);
+
+				Menu categorymenu = MenuConstructor_InventoryCategory(param1, item.category);
+				categorymenu.Display(param1, 60);
 			}
 
 			if (StrEqual(key, "equip"))
